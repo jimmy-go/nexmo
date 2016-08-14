@@ -1,5 +1,7 @@
 ####Nexmo client for Go.
 
+For now you can send sms only. Not tested with credentials.
+
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/jimmy-go/nexmo.svg?branch=master)](https://travis-ci.org/jimmy-go/nexmo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jimmy-go/nexmo)](https://goreportcard.com/report/github.com/jimmy-go/nexmo)
