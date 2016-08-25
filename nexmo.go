@@ -204,7 +204,7 @@ func (x *Nexmo) SMS(r *Request) (*Response, error) {
 	v.Add("to", r.To)
 	v.Add("from", r.From)
 	v.Add("text", strings.Replace(r.Text, " ", "+", -1))
-	req, err := http.NewRequest(http.MethodGet, restEndpoint, bytes.NewBufferString(v.Encode()))
+	req, err := http.NewRequest("GET", restEndpoint, bytes.NewBufferString(v.Encode()))
 	if err != nil {
 		return res, err
 	}
