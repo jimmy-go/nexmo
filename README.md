@@ -8,9 +8,13 @@ For now you can send sms only. Not tested with credentials.
 [![GoDoc](http://godoc.org/github.com/jimmy-go/nexmo?status.png)](http://godoc.org/github.com/jimmy-go/nexmo)
 [![Coverage Status](https://coveralls.io/repos/github/jimmy-go/nexmo/badge.svg?branch=master)](https://coveralls.io/github/jimmy-go/nexmo?branch=master)
 
-####Install:
+#####Install:
 ```
-go get github.com/jimmy-go/nexmo
+go get gopkg.in/jimmy-go/nexmo.v0
+```
+
+#####Usage:
+```
 ```
 
 #####License:

@@ -1,6 +1,6 @@
 // Package nexmo contains Nexmo client API.
 //
-// see:
+// see: https://docs.nexmo.com/messaging/sms-api
 //
 // MIT License
 //
