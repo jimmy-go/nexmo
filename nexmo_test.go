@@ -1,4 +1,26 @@
 // Package nexmo contains tests for nexmo client.
+//
+// MIT License
+//
+// Copyright (c) 2016 Angel Del Castillo
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 package nexmo
 
 import (
@@ -6,62 +28,165 @@ import (
 	"time"
 )
 
-func TestSMS(t *testing.T) {
-	nmo, err := New("123", "123", time.Second)
-	if err != nil {
-		t.Logf("new : err [%s]", err)
-		t.Fail()
-		return
-	}
-
-	res, err := nmo.BasicSMS("5215522334455", "nexmotest", "Hi nexmo test")
-	// we can take this as a natural error in tests. FIXME;
-	if err == ErrInvalidRequest {
-		t.Logf("basicSMS : expected error : err [%s]", err)
-		return
-	}
-	if err != nil {
-		t.Logf("basicSMS : err [%s]", err)
-	}
-	if res == nil {
-		t.Logf("basicSMS : res nil")
-		return
-	}
-	if len(res.Messages) < 1 {
-		t.Logf("messages [%v]", len(res.Messages))
-		t.Fail()
-	}
-}
-
 type T struct {
-	Key      string
-	Secret   string
-	Timeout  time.Duration
+	Input    Input
 	Expected error
 }
 
-func TestSMStable(t *testing.T) {
+type Input struct {
+	Key       string
+	Secret    string
+	Timeout   time.Duration
+	To        string
+	From      string
+	Text      string
+	Lang      string
+	Voice     string
+	AnswerURL string
+}
+
+func TestNew(t *testing.T) {
 	table := []T{
 		T{
-			Key:      "",
-			Secret:   "123",
-			Timeout:  time.Second,
+			Input: Input{
+				Key:     "",
+				Secret:  "",
+				Timeout: time.Second,
+			},
 			Expected: ErrInvalidKey,
 		},
 		T{
-			Key:      "123",
-			Secret:   "",
-			Timeout:  time.Second,
+			Input: Input{
+				Key:     "123",
+				Secret:  "",
+				Timeout: time.Second,
+			},
 			Expected: ErrInvalidSecret,
 		},
 	}
 	for i := range table {
 		x := table[i]
-		_, err := New(x.Key, x.Secret, time.Second)
+		_, err := New(x.Input.Key, x.Input.Secret, x.Input.Timeout)
 		if err != x.Expected {
 			t.Logf("expected [%v] actual [%v]", x.Expected, err)
 			t.Fail()
+			continue
 		}
 	}
-	Must("123", "123", time.Second)
+	Must("123", "456", time.Second)
+}
+
+func TestTableSMS(t *testing.T) {
+	table := []T{
+		T{
+			Input: Input{
+				Key:     "123",
+				Secret:  "123",
+				Timeout: time.Second,
+			},
+			Expected: nil,
+		},
+		T{
+			Input: Input{
+				Key:     "123",
+				Secret:  "123",
+				Timeout: time.Second,
+			},
+			Expected: nil,
+		},
+	}
+	for i := range table {
+		x := table[i]
+		client, err := New(x.Input.Key, x.Input.Secret, x.Input.Timeout)
+		if err != nil {
+			t.Logf("new : err [%v]", err)
+			t.Fail()
+			continue
+		}
+		msg := NewSMS(x.Input.To, x.Input.From, x.Input.Text)
+		_, err = client.SMS(msg)
+		if err != x.Expected {
+			t.Logf("expected [%v] actual [%v]", x.Expected, err)
+			t.Fail()
+			continue
+		}
+	}
+}
+
+func TestTableText2Speech(t *testing.T) {
+	table := []T{
+		T{
+			Input: Input{
+				Key:     "123",
+				Secret:  "123",
+				Timeout: time.Second,
+			},
+			Expected: ErrBadRequest,
+		},
+		T{
+			Input: Input{
+				Key:     "123",
+				Secret:  "123",
+				Timeout: time.Second,
+			},
+			Expected: ErrBadRequest,
+		},
+	}
+	for i := range table {
+		x := table[i]
+		client, err := New(x.Input.Key, x.Input.Secret, x.Input.Timeout)
+		if err != nil {
+			t.Logf("new : err [%v]", err)
+			t.Fail()
+			continue
+		}
+		msg := NewText2Speech(x.Input.To, x.Input.From, x.Input.Text, x.Input.Lang, x.Input.Voice)
+		_, err = client.Text2Speech(msg)
+		if err != x.Expected {
+			t.Logf("expected [%v] actual [%v]", x.Expected, err)
+			t.Fail()
+			continue
+		}
+	}
+}
+
+func TestTableCall(t *testing.T) {
+	table := []T{
+		T{
+			Input: Input{
+				Key:       "123",
+				Secret:    "123",
+				Timeout:   time.Second,
+				To:        "5215522334455",
+				AnswerURL: "http://localhost/somexml.xml",
+			},
+			Expected: nil,
+		},
+		T{
+			Input: Input{
+				Key:       "123",
+				Secret:    "123",
+				Timeout:   time.Second,
+				To:        "5215522334455",
+				AnswerURL: "http://localhost/somexml.xml",
+			},
+			Expected: nil,
+		},
+	}
+	for i := range table {
+		x := table[i]
+		client, err := New(x.Input.Key, x.Input.Secret, x.Input.Timeout)
+		if err != nil {
+			t.Logf("new : err [%v]", err)
+			t.Fail()
+			continue
+		}
+		msg := NewCall(x.Input.To, x.Input.AnswerURL)
+		_, err = client.Call(msg)
+		if err != x.Expected {
+			t.Logf("expected [%v] actual [%v]", x.Expected, err)
+			t.Fail()
+			continue
+		}
+	}
 }
