@@ -1,6 +1,6 @@
-####Nexmo client for Go.
+####Nexmo client written in Go.
 
-For now you can send sms only. Not tested with credentials.
+Not tested with credentials.
 
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/jimmy-go/nexmo.svg?branch=master)](https://travis-ci.org/jimmy-go/nexmo)
@@ -14,7 +14,30 @@ go get gopkg.in/jimmy-go/nexmo.v0
 ```
 
 #####Usage:
+Call `nexmo.New` method to get a new Nexmo client.
+For every Nexmo feature there is a package with that name
+that contains his Request and Response type.
+
+E.g.: For method SMS you need a nexmo.sms.Request{} that returns
+nexmo.sms.Response{}
+
 ```
+# declare a new client
+client, err := nexmo.New("APIKEY", "APISECRET")
+// check errors...
+
+# use it
+msg := nexmo.NewSMS("5215522334455", "NexmoTest", "Hello world!")
+resp, err := client.SMS(msg)
+// resp = nexmo.sms.Response
+
+req := nexmo.NewCall("5215522334455", "http://someurl/answer.xml")
+resp, err := client.Call(req)
+// resp = nexmo.call.Response
+
+t2s := nexmo.NewText2Speech("5215522334455", "NexmoTest", "Hello my world!", "en-us", "female")
+resp, err := client.Text2Speech(t2s)
+// resp = nexmo.text2speech.Response
 ```
 
 #####License:
