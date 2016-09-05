@@ -40,6 +40,11 @@ resp, err := client.Text2Speech(t2s)
 // resp = nexmo.text2speech.Response
 ```
 
+#####Credits:
+
+* [NEXMO](https://www.nexmo.com)
+* [NEXMO DOC](https://docs.nexmo.com)
+
 #####License:
 
 MIT License
