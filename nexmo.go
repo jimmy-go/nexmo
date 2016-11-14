@@ -29,7 +29,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -160,18 +159,19 @@ func (x *Nexmo) do(p url.Values, supportType string, dst interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return ErrBadRequest
 	}
 
-	buf := bytes.NewBuffer([]byte{})
-	reader := io.TeeReader(resp.Body, buf)
-
-	err = json.NewDecoder(reader).Decode(dst)
+	err = json.NewDecoder(resp.Body).Decode(dst)
 	if err != nil {
-		log.Printf("Nexmo : do : body [%v]", buf.String())
+		buf := bytes.NewBuffer([]byte{})
+		_, _ = buf.ReadFrom(resp.Body)
+		log.Printf("Nexmo : do : err body [%v]", buf.String())
 		return err
 	}
 	return nil
