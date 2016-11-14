@@ -1,6 +1,6 @@
-// Package nexmo contains Nexmo client API.
+// Package nexmo contains Nexmo client using oficial documentation.
 //
-// see:
+// see: https://docs.nexmo.com
 //
 // MIT License
 //
@@ -29,120 +29,46 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
-	"strings"
+	"sync"
 	"time"
+
+	"github.com/google/go-querystring/query"
+	"github.com/jimmy-go/nexmo/nexmo.call"
+	"github.com/jimmy-go/nexmo/nexmo.sms"
+	"github.com/jimmy-go/nexmo/nexmo.text2speech"
 )
 
 var (
-
-	// ErrInvalidKey _
+	// ErrInvalidKey returned when API KEY is empty.
 	ErrInvalidKey = errors.New("nexmo: invalid key length")
-	// ErrInvalidSecret _
+
+	// ErrInvalidSecret returned when API SECRET is empty.
 	ErrInvalidSecret = errors.New("nexmo: invalid key length")
-	// ErrResponseEmpty _
-	ErrResponseEmpty = errors.New("nexmo: response is empty")
-	// ErrInvalidRequest is return when http response status
+
+	// ErrEmptyResponse returned if response has no messages.
+	ErrEmptyResponse = errors.New("nexmo: response is empty")
+
+	// ErrBadRequest is return when http response status
 	// is not 200.
-	ErrInvalidRequest = errors.New("nexmo: invalid request")
+	ErrBadRequest = errors.New("nexmo: bad request")
+
+	// ErrSupportNotFound returned when this package has no
+	// implementation for some feature. See supportmap map.
+	ErrSupportNotFound = errors.New("nexmo: feature not supported")
 )
 
 const (
-	restEndpoint = "https://rest.nexmo.com/sms/json?"
+	// EndpointSMS Nexmo API endpoint.
+	EndpointSMS = "https://rest.nexmo.com/sms/json?"
 
-	// StatusOK 0 - Delivered.
-	StatusOK = "0"
-	// StatusUnknown 1 - Unknown - either:
-	// * An unknown error was received from the carrier who
-	//   tried to send this this message.
-	// * Depending on the carrier, that to is unknown.
-	// When you see this error, and status is rejected,
-	// always check if to in your request was valid.
-	StatusUnknown = "1"
-	// StatusAbsentSubscriberTemporary 2 - Absent Subscriber
-	// Temporary - this message was not delivered because
-	// to was temporarily unavailable. For example,
-	// the handset used for to was out of coverage or
-	// switched off. This is a temporary failure,
-	// retry later for a positive result.
-	StatusAbsentSubscriberTemporary = "2"
-	// StatusAbsentSubscriberPermanent 3 - Absent Subscriber
-	// Permanent - to is no longer active, you should
-	// remove this phone number from your database.
-	StatusAbsentSubscriberPermanent = "3"
-	// StatusCallBarredUser 4 - Call barred by user - you should
-	// remove this phone number from your database. If the
-	// user wants to receive messages from you, they need
-	// to contact their carrier directly.
-	StatusCallBarredUser = "4"
-	// StatusPortabilityError 5 - Portability Error - there
-	// is an issue after the user has changed carrier for
-	// to. If the user wants to receive messages from you,
-	// they need to contact their carrier directly.
-	StatusPortabilityError = "5"
-	// StatusAntiSpamRejection 6 - Anti-Spam Rejection -
-	// carriers often apply restrictions that block messages
-	// following different criteria. For example, on
-	// SenderID or message content.
-	StatusAntiSpamRejection = "6"
-	// StatusHandsetBusy 7 - Handset Busy - the handset
-	// associated with to was not available when this
-	// message was sent. If status is Failed, this is a
-	// temporary failure; retry later for a positive result.
-	// If status is Accepted, this message has is in the
-	// retry scheme and will be resent until it expires
-	// in 24-48 hours.
-	StatusHandsetBusy = "7"
-	// StatusNetworkError 8 - Network Error - a network
-	// failure while sending your message. This is a
-	// temporary failure, retry later for a positive result.
-	StatusNetworkError = "8"
-	// StatusIllegalNumber 9 - Illegal Number - you tried
-	// to send a message to a blacklisted phone number.
-	// That is, the user has already sent a STOP opt-out
-	// message and no longer wishes to receive messages
-	// from you.
-	StatusIllegalNumber = "9"
-	// StatusInvalidMessage 10 - Invalid Message - the
-	// message could not be sent because one of the
-	// parameters in the message was incorrect.
-	// For example, incorrect type or udh.
-	StatusInvalidMessage = "10"
-	// StatusUnroutable 11 - Unroutable - the
-	// chosen route to send your message is not available.
-	// This is because the phone number is either:
-	// * currently on an unsupported network.
-	// * On a pre-paid or reseller account that
-	//   could not receive a message sent by from.
-	// To resolve this issue either email us at
-	// support@nexmo.com or create a helpdesk ticket
-	// at https://help.nexmo.com.
-	StatusUnroutable = "11"
-	// StatusDestinationUnreachable 12 - Destination
-	// unreachable - the message could not be delivered to
-	// the phone number.
-	StatusDestinationUnreachable = "12"
-	// StatusAgeRestriction 13 - Subscriber Age Restriction
-	// - the carrier blocked this message because the
-	// content is not suitable for to based on
-	// age restrictions.
-	StatusAgeRestriction = "13"
-	// StatusBlockedByCarrier 14 - Number Blocked by Carrier
-	// - the carrier blocked this message. This could be
-	// due to several reasons. For example, to's plan does
-	// not include SMS or the account is suspended.
-	StatusBlockedByCarrier = "14"
-	// StatusPrePaidInsufficient 15 - Pre-Paid - Insufficent
-	// funds - to’s pre-paid account does not have enough
-	// credit to receive the message.
-	StatusPrePaidInsufficient = "15"
-	// StatusGeneralError 99 - General Error - there is a
-	// problem with the chosen route to send your message.
-	// To resolve this issue either email us at
-	// support@nexmo.com or create a helpdesk ticket
-	// at https://help.nexmo.com.
-	StatusGeneralError = "99"
+	// EndpointCall Nexmo API endpoint.
+	EndpointCall = "https://rest.nexmo.com/call/json?"
+
+	// EndpointText2Speech Nexmo API endpoint.
+	EndpointText2Speech = "https://api.nexmo.com/tts/json?"
 )
 
 // Nexmo client
@@ -151,9 +77,10 @@ type Nexmo struct {
 	Secret string
 
 	Client *http.Client
+	sync.RWMutex
 }
 
-// New returns a new Nexmo client.
+// New returns a new Nexmo client with timeout.
 func New(key, secret string, timeout time.Duration) (*Nexmo, error) {
 	if len(key) < 1 {
 		return nil, ErrInvalidKey
@@ -171,7 +98,7 @@ func New(key, secret string, timeout time.Duration) (*Nexmo, error) {
 	return n, nil
 }
 
-// Must calls New func or panic if a error happens.
+// Must calls New func or panic.
 func Must(key, secret string, timeout time.Duration) *Nexmo {
 	nex, err := New(key, secret, timeout)
 	if err != nil {
@@ -180,111 +107,170 @@ func Must(key, secret string, timeout time.Duration) *Nexmo {
 	return nex
 }
 
-// BasicSMS sends a sms using nexmo client and returns Response
-// type.
-//
-// For a more complete use case view SMS method.
-func (x *Nexmo) BasicSMS(to, from, text string) (*Response, error) {
-	req := &Request{
+// Support struct
+type Support struct {
+	DocURL string
+	Method string
+	URL    string
+}
+
+var (
+	// supportmap contains general endpoints for nexmo client
+	// using oficial nexmo docs.
+	supportmap = map[string]*Support{
+		"sms": &Support{
+			DocURL: "https://docs.nexmo.com/messaging/sms-api/api-reference",
+			Method: "POST",
+			URL:    EndpointSMS,
+		},
+		"call": &Support{
+			DocURL: "https://docs.nexmo.com/voice/call",
+			Method: "POST",
+			URL:    EndpointCall,
+		},
+		"text2speech": &Support{
+			DocURL: "https://docs.nexmo.com/voice/text-to-speech",
+			Method: "POST",
+			URL:    EndpointText2Speech,
+		},
+	}
+)
+
+// do internal client request doer.
+func (x *Nexmo) do(p url.Values, supportType string, dst interface{}) error {
+	x.RLock()
+	defer x.RUnlock()
+
+	resource, ok := supportmap[supportType]
+	if !ok {
+		return ErrSupportNotFound
+	}
+	uri, err := url.Parse(resource.URL)
+	if err != nil {
+		return err
+	}
+	req := &http.Request{
+		URL:      uri,
+		Method:   resource.Method,
+		Form:     p,
+		PostForm: p,
+	}
+	resp, err := x.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return ErrBadRequest
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(dst)
+	if err != nil {
+		buf := bytes.NewBuffer([]byte{})
+		_, _ = buf.ReadFrom(resp.Body)
+		log.Printf("Nexmo : do : err body [%v]", buf.String())
+		return err
+	}
+	return nil
+}
+
+// NewSMS returns a new SMS request only with required fields.
+// see: https://docs.nexmo.com/messaging/sms-api/api-reference#request
+func NewSMS(to, from, text string) *sms.Request {
+	req := &sms.Request{
 		To:   to,
 		From: from,
 		Text: text,
 	}
-	return x.SMS(req)
+	return req
 }
 
-// SMS sends a sms using nexmo client.
+// SMS use SMS API to send and receive a high volume of SMS
+// anywhere in the world.
 //
-// see: https://docs.nexmo.com/messaging/sms-api/api-reference#request
-func (x *Nexmo) SMS(r *Request) (*Response, error) {
-	var res *Response
-	v := url.Values{}
-	v.Add("api_key", x.Key)
-	v.Add("api_secret", x.Secret)
-	v.Add("to", r.To)
-	v.Add("from", r.From)
-	v.Add("text", strings.Replace(r.Text, " ", "+", -1))
-	req, err := http.NewRequest("GET", restEndpoint, bytes.NewBufferString(v.Encode()))
+// see: https://docs.nexmo.com/messaging/sms-api
+func (x *Nexmo) SMS(r *sms.Request) (*sms.Response, error) {
+	v, err := query.Values(r)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
-	resp, err := x.Client.Do(req)
-	if err != nil {
-		return res, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return res, ErrInvalidRequest
-	}
-	err = json.NewDecoder(resp.Body).Decode(&res)
+	// force credentials
+	v.Set("api_key", x.Key)
+	v.Set("api_secret", x.Secret)
+
+	var res *sms.Response
+	err = x.do(v, "sms", &res)
 	if err != nil {
 		return res, err
 	}
 	if len(res.Messages) < 1 {
-		return res, ErrResponseEmpty
+		return res, ErrEmptyResponse
 	}
 	return res, nil
 }
 
-// Call calls using nexmo client.
-func (x *Nexmo) Call(phone, speech, lang string) (string, error) {
-	return "", nil
+// NewCall returns a new call request with only required fields.
+// see: https://docs.nexmo.com/voice/call/request
+func NewCall(to, answerURL string) *call.Request {
+	req := &call.Request{
+		To:        to,
+		AnswerURL: answerURL,
+	}
+	return req
 }
 
-// Request nexmo request.
+// Call You use Call API to make outbound calls from Nexmo
+// virtual numbers to other phone numbers.
+func (x *Nexmo) Call(r *call.Request) (*call.Response, error) {
+	v, err := query.Values(r)
+	if err != nil {
+		return nil, err
+	}
+	// force credentials
+	v.Set("api_key", x.Key)
+	v.Set("api_secret", x.Secret)
+
+	var res *call.Response
+	err = x.do(v, "call", &res)
+	if err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
+// NewText2Speech returns a new text2speech request with only
+// required fields.
 //
-// see: https://docs.nexmo.com/messaging/sms-api/api-reference#request
-type Request struct {
-	From         string `json:"from"`
-	To           string `json:"to"`
-	Type         string `json:"type"`
-	Text         string `json:"text"`
-	StatusReport string `json:"status-report-req"`
-	ClientRef    string `json:"client-ref"`
-	Vcard        string `json:"vcard"`
-	Vcal         string `json:"vcal"`
-	Callback     string `json:"callback"`
-	MessageClass string `json:"message-class"`
-	UDH          string `json:"udh"`
-	ProtocolID   string `json:"protocol-id"`
-	Body         string `json:"body"`
-	Title        string `json:"title"`
-	URL          string `json:"url"`
-	Validity     string `json:"validity"`
+// see: https://docs.nexmo.com/voice/text-to-speech/request
+func NewText2Speech(to, from, text, lang, voice string) *text2speech.Request {
+	req := &text2speech.Request{
+		To:       to,
+		From:     from,
+		Text:     text,
+		Language: lang,
+		Voice:    voice,
+	}
+	return req
 }
 
-// Response nexmo response for sms.
-//
-// see: https://docs.nexmo.com/messaging/sms-api/api-reference#response
-type Response struct {
-	MessageCount string     `json:"message-count"`
-	Messages     []*Message `json:"messages"`
-}
+// Text2Speech You use Text-To-Speech API to send
+// synthesized speech or recorded sound files to a phone number
+func (x *Nexmo) Text2Speech(r *text2speech.Request) (*text2speech.Response, error) {
+	v, err := query.Values(r)
+	if err != nil {
+		return nil, err
+	}
+	// force credentials
+	v.Set("api_key", x.Key)
+	v.Set("api_secret", x.Secret)
 
-// Message inside nexmo response.
-type Message struct {
-	Status           string `json:"status"`
-	MessageID        string `json:"message-id"`
-	To               string `json:"to"`
-	ClientRef        string `json:"client-ref"`
-	RemainingBalance string `json:"remaining-balance"`
-	MessagePrice     string `json:"message-price"`
-	Network          string `json:"network"`
-	ErrorText        string `json:"error-text"`
-}
-
-// DeliveryReceipt for webhook endpoint.
-//
-// see: https://docs.nexmo.com/messaging/sms-api/api-reference#delivery_receipt
-type DeliveryReceipt struct {
-	To               string `json:"to"`
-	NetworkCode      string `json:"network-code"`
-	MessageID        string `json:"messageId"`
-	Msisdn           string `json:"msisdn"`
-	Status           string `json:"status"`
-	ErrCode          string `json:"err-code"`
-	Price            string `json:"price"`
-	Scts             string `json:"scts"`
-	MessageTimestamp string `json:"message-timestamp"`
-	ClientRef        string `json:"client-ref"`
+	var res *text2speech.Response
+	err = x.do(v, "text2speech", &res)
+	if err != nil {
+		return res, err
+	}
+	return res, nil
 }
