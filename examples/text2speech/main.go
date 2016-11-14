@@ -32,17 +32,14 @@ import (
 	"github.com/jimmy-go/nexmo"
 )
 
-var (
-	key    = flag.String("api-key", "", "Nexmo API KEY.")
-	secret = flag.String("api-secret", "", "Nexmo API SECRET.")
-	to     = flag.String("to", "", "Nexmo phone destination.")
-	from   = flag.String("from", "", "Your Nexmo phone number.")
-	text   = flag.String("text", "", "SMS message content.")
-	lang   = flag.String("lang", "", "Language.")
-	voice  = flag.String("voice", "", "Voice.")
-)
-
 func main() {
+	key := flag.String("api-key", "", "Nexmo API KEY.")
+	secret := flag.String("api-secret", "", "Nexmo API SECRET.")
+	to := flag.String("to", "", "Nexmo phone destination.")
+	from := flag.String("from", "", "Your Nexmo phone number.")
+	text := flag.String("text", "", "SMS message content.")
+	lang := flag.String("lang", "", "Language.")
+	voice := flag.String("voice", "", "Voice.")
 	flag.Parse()
 	log.SetFlags(0)
 	log.Printf("Nexmo Key [%s]", *key)
