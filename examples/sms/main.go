@@ -43,11 +43,9 @@ var (
 
 func main() {
 	flag.Parse()
-	log.SetFlags(0)
-	log.Printf("Nexmo Key [%s]", *key)
-	log.Printf("Nexmo Secret [%s]", *secret)
+	log.SetFlags(log.Lshortfile)
 
-	client, err := nexmo.New(*key, *secret, time.Second)
+	nclient, err := nexmo.New(*key, *secret, time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +65,7 @@ func main() {
 		Vcard:        "",
 		Vcal:         "",
 	}
-	resp, err := client.SMS(msg)
+	resp, err := nclient.SMS(msg)
 	if err != nil {
 		panic(err)
 	}

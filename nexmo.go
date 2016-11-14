@@ -73,10 +73,9 @@ const (
 
 // Nexmo client
 type Nexmo struct {
-	Key    string
-	Secret string
-
-	Client *http.Client
+	key    string
+	secret string
+	client *http.Client
 	sync.RWMutex
 }
 
@@ -89,9 +88,9 @@ func New(key, secret string, timeout time.Duration) (*Nexmo, error) {
 		return nil, ErrInvalidSecret
 	}
 	n := &Nexmo{
-		Key:    key,
-		Secret: secret,
-		Client: &http.Client{
+		key:    key,
+		secret: secret,
+		client: &http.Client{
 			Timeout: timeout,
 		},
 	}
@@ -140,33 +139,39 @@ var (
 func (x *Nexmo) do(p url.Values, supportType string, dst interface{}) error {
 	x.RLock()
 	defer x.RUnlock()
-
 	resource, ok := supportmap[supportType]
 	if !ok {
 		return ErrSupportNotFound
 	}
-	uri, err := url.Parse(resource.URL)
+	// clean empty keys
+	for k, val := range p {
+		if len(val) < 1 {
+			p.Del(k)
+			continue
+		}
+		if len(val[0]) < 1 {
+			p.Del(k)
+			continue
+		}
+	}
+	// force credentials
+	p.Set("api_key", x.key)
+	p.Set("api_secret", x.secret)
+	uri := resource.URL + p.Encode()
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return err
 	}
-	req := &http.Request{
-		URL:      uri,
-		Method:   resource.Method,
-		Form:     p,
-		PostForm: p,
-	}
-	resp, err := x.Client.Do(req)
+	resp, err := x.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-
 	if resp.StatusCode != http.StatusOK {
 		return ErrBadRequest
 	}
-
 	err = json.NewDecoder(resp.Body).Decode(dst)
 	if err != nil {
 		buf := bytes.NewBuffer([]byte{})
@@ -197,10 +202,6 @@ func (x *Nexmo) SMS(r *sms.Request) (*sms.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	// force credentials
-	v.Set("api_key", x.Key)
-	v.Set("api_secret", x.Secret)
-
 	var res *sms.Response
 	err = x.do(v, "sms", &res)
 	if err != nil {
@@ -229,10 +230,6 @@ func (x *Nexmo) Call(r *call.Request) (*call.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	// force credentials
-	v.Set("api_key", x.Key)
-	v.Set("api_secret", x.Secret)
-
 	var res *call.Response
 	err = x.do(v, "call", &res)
 	if err != nil {
@@ -263,10 +260,6 @@ func (x *Nexmo) Text2Speech(r *text2speech.Request) (*text2speech.Response, erro
 	if err != nil {
 		return nil, err
 	}
-	// force credentials
-	v.Set("api_key", x.Key)
-	v.Set("api_secret", x.Secret)
-
 	var res *text2speech.Response
 	err = x.do(v, "text2speech", &res)
 	if err != nil {
