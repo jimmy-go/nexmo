@@ -1,8 +1,8 @@
 hash: 0553133a3ea5b55daef9c970995f2d4a59676f8c124d893ca4522fbe29fed023
-updated: 2016-11-14T04:49:21.512698226-06:00
+updated: 2018-02-16T23:29:09.715687-06:00
 imports:
 - name: github.com/google/go-querystring
-  version: 9235644dd9e52eeae6fa48efd539fdc351a0af53
+  version: 53e6ce116135b80d037921a7fdd5138cf32d7a8a
   subpackages:
   - query
 testImports: []
